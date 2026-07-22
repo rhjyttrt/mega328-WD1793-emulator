@@ -1,0 +1,19 @@
+# Build Artifacts & Output Binaries
+*.o
+*.elf
+*.d
+*.eep
+*.lst
+*.map
+build/
+bin/
+
+# IDE & Editor temporary files
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
