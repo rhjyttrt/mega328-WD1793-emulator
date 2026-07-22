@@ -59,7 +59,7 @@ avrdude -c arduino -p m328p -P /dev/ttyUSB0 -b 57600 -U flash:w:arduino-nano/fir
 ## Detailed Usage Instructions
 
 ### Step 1: Prepare the SD Card Image
-The emulator reads raw 512-byte blocks directly from the SD card starting at Logical Block Address (LBA) 2048 (1 MB offset) without a file system overhead.
+The emulator reads raw 512 byte blocks directly from the SD card starting at Logical Block Address 2048 without a file system overhead.
 
 1. Connect your MicroSD card to your Linux PC.
 2. Identify the card device name using lsblk (e.g., /dev/sdb or /dev/mmcblk0).
