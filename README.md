@@ -5,8 +5,8 @@ An ATmega328P-based hardware emulator for the Western Digital WD1793 (and compat
 ---
 
 ## Directory Layout
-- bare-mega328/ : ATmega328P MiniCore target build and source files
-- arduino-nano/ : Standard Arduino Nano / Uno R3 (16 MHz) target build and source files
+- bare-mega328/ : ATmega328P MiniCore target build and source files (16/20 MHz)
+- arduino-nano/ : Standard Arduino Nano / Uno R3 target build and source files (16 MHz)
 
 ---
 
@@ -48,11 +48,52 @@ An ATmega328P-based hardware emulator for the Western Digital WD1793 (and compat
 
 ## Flashing Commands
 
-### Bare ATmega328 (USBasp / ISP):
+### Bare ATmega328 (USBasp / ISP Programmer):
 avrdude -c usbasp -p m328p -U flash:w:bare-mega328/firmware/main.hex:i
 
 ### Arduino Nano / Uno R3 (Serial Bootloader):
 avrdude -c arduino -p m328p -P /dev/ttyUSB0 -b 57600 -U flash:w:arduino-nano/firmware/main_nano.hex:i
+
+---
+
+## Detailed Usage Instructions
+
+### Step 1: Prepare the SD Card Image
+The emulator reads raw 512-byte blocks directly from the SD card starting at Logical Block Address (LBA) 2048 (1 MB offset) without a file system overhead.
+
+1. Connect your MicroSD card to your Linux PC.
+2. Identify the card device name using lsblk (e.g., /dev/sdb or /dev/mmcblk0).
+3. Write your floppy disk raw image (.img or .dsk) directly to sector 2048 using dd:
+
+sudo dd if=path/to/your_floppy_disk.img of=/dev/sdX seek=2048 bs=512 conv=notrunc
+
+---
+
+### Step 2: Host CPU Memory / IO Mapping
+Connect the emulator lines to your host computer system (6502, 6809, Z80, etc.):
+- Address Lines (A0, A1): Connect to host bus lower address bits to select controller registers:
+  0x00 : Command Register (Write) / Status Register (Read)
+  0x01 : Track Register (Read/Write)
+  0x02 : Sector Register (Read/Write)
+  0x03 : Data Register (Read/Write)
+- Control Lines:
+  CS: Connect to host decode logic (Active Low).
+  R/W: Connect to host Read/Write line (High = Read, Low = Write).
+  DRQ / INTRQ: Connect to host IRQ line or poll via status reads.
+
+---
+
+### Step 3: Powering & Operation
+1. Insert the prepared SD card into the module.
+2. Apply 5V power to the ATmega328P / Arduino Nano.
+3. Power on the host system.
+4. The host system can now issue standard WD1793 commands (e.g., Restore, Seek, Read Sector, Write Sector) to access sectors stored on the SD card.
+
+---
+
+## Troubleshooting & Important Hardware Notes
+- USB Serial Interference (Arduino Nano): Pins D0 and D1 double as the hardware RX/TX UART lines. Do not open the Arduino Serial Monitor or serial terminal programs while connected to the host bus, as this will corrupt Data Bits 0 and 1.
+- SD Card Voltage: ATmega328 outputs are 5V logic. Ensure your SD card breakout module features an onboard 3.3V regulator and level shifter to protect the card inputs.
 
 ---
 
