@@ -4,12 +4,6 @@ An ATmega328P-based hardware emulator for the Western Digital WD1793 (and compat
 
 ---
 
-## Directory Layout
-- bare-mega328/ : ATmega328P MiniCore target build and source files (16/20 MHz)
-- arduino-nano/ : Standard Arduino Nano / Uno R3 target build and source files (16 MHz)
-
----
-
 ## Hardware Wiring Guide
 
 ### 1. Host System Bus Pinout (PORTD & PORTC)
