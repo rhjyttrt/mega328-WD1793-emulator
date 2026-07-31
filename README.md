@@ -61,11 +61,6 @@ avrdude -c arduino -p m328p -P /dev/ttyUSB0 -b 57600 -U flash:w:arduino-nano/fir
 ### Step 1: Prepare the SD Card Image
 The emulator reads raw 512 byte blocks directly from the SD card starting at Logical Block Address 2048 without a file system overhead.
 
-1. Connect your MicroSD card to your Linux PC.
-2. Identify the card device name using lsblk (e.g., /dev/sdb or /dev/mmcblk0).
-3. Write your floppy disk raw image (.img or .dsk) directly to sector 2048 using dd:
-
-sudo dd if=path/to/your_floppy_disk.img of=/dev/sdX seek=2048 bs=512 conv=notrunc
 
 ---
 
