@@ -6,7 +6,7 @@
 #include <Arduino.h>
 #include <util/atomic.h>
 
-// #define MCU_FREQ_16MHZ
+// #define MCU_FREQ_20MHZ
 #define MCU_FREQ_20MHZ
 
 // #define HOST_6502_1000KHZ
