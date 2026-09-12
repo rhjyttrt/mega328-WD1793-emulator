@@ -201,8 +201,12 @@ stream_read_non_data_rel:
 stream_read_abort_write:
     in   r24, _SFR_IO_ADDR(PIND)
 stream_read_abort_rel:
-    sbis _SFR_IO_ADDR(PINC), PC2
+    sbic _SFR_IO_ADDR(PINC), PC2
+    rjmp stream_read_abort_done
+    in   r24, _SFR_IO_ADDR(PIND)
     rjmp stream_read_abort_rel
+
+stream_read_abort_done:
     cbi  _SFR_IO_ADDR(PORTC), PC4
     ldi  r25, 1
     ret
@@ -263,8 +267,12 @@ stream_write_read_rel:
 stream_write_abort:
     in   r24, _SFR_IO_ADDR(PIND)
 stream_write_abort_rel:
-    sbis _SFR_IO_ADDR(PINC), PC2
+    sbic _SFR_IO_ADDR(PINC), PC2
+    rjmp stream_write_abort_done
+    in   r24, _SFR_IO_ADDR(PIND)
     rjmp stream_write_abort_rel
+
+stream_write_abort_done:
     cbi  _SFR_IO_ADDR(PORTC), PC4
     ldi  r25, 1
     ret
