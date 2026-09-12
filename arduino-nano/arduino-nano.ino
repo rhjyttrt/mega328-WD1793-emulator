@@ -43,6 +43,8 @@ enum CommandType { CMD_IDLE, CMD_TYPE1, CMD_READ_SECTOR, CMD_WRITE_SECTOR, CMD_R
 CommandType active_cmd_type = CMD_IDLE;
 
 uint32_t index_pulse_counter = 0;
+uint8_t pending_cmd       = 0x00;
+bool has_pending_cmd       = false;
 
 uint8_t get_type1_status(void) {
   uint8_t st = 0x00;
@@ -60,10 +62,18 @@ uint8_t get_type1_status(void) {
 
 void run_disk_controller(void) {
   while (1) {
-    uint16_t bus_result = poll_6502_bus_asm(status_reg, track_reg, sector_reg, data_reg);
+    uint8_t event_type;
+    uint8_t event_val;
 
-    uint8_t event_type = (bus_result >> 8) & 0xFF;
-    uint8_t event_val  = bus_result & 0xFF;
+    if (has_pending_cmd) {
+      has_pending_cmd = false;
+      event_type = 0x80;
+      event_val  = pending_cmd;
+    } else {
+      uint16_t bus_result = poll_6502_bus_asm(status_reg, track_reg, sector_reg, data_reg);
+      event_type = (bus_result >> 8) & 0xFF;
+      event_val  = bus_result & 0xFF;
+    }
 
     if (event_type & 0x80) {
       uint8_t target_addr = event_type & 0x03;
@@ -162,13 +172,11 @@ void run_disk_controller(void) {
               status_reg = 0x03;
               uint16_t stream_res = stream_read_sector_asm(sector_buffer, bytes_per_sector);
               if (stream_res & 0xFF00) {
-                uint8_t abort_cmd = stream_res & 0xFF;
-                if ((abort_cmd & 0xF0) == 0xD0) {
-                  last_cmd_is_type1 = true;
-                  status_reg = get_type1_status();
-                  if (abort_cmd & 0x08) PORTC |= (1 << PC5);
-                  else PORTC &= ~(1 << PC5);
-                }
+                active_cmd_type = CMD_IDLE;
+                status_reg &= ~0x03;
+                PORTC &= ~(1 << PC4);
+                has_pending_cmd = true;
+                pending_cmd = stream_res & 0xFF;
                 break;
               }
 
@@ -224,13 +232,11 @@ void run_disk_controller(void) {
               status_reg = 0x03;
               uint16_t stream_res = stream_write_sector_asm(sector_buffer, bytes_per_sector);
               if (stream_res & 0xFF00) {
-                uint8_t abort_cmd = stream_res & 0xFF;
-                if ((abort_cmd & 0xF0) == 0xD0) {
-                  last_cmd_is_type1 = true;
-                  status_reg = get_type1_status();
-                  if (abort_cmd & 0x08) PORTC |= (1 << PC5);
-                  else PORTC &= ~(1 << PC5);
-                }
+                active_cmd_type = CMD_IDLE;
+                status_reg &= ~0x03;
+                PORTC &= ~(1 << PC4);
+                has_pending_cmd = true;
+                pending_cmd = stream_res & 0xFF;
                 break;
               }
 
