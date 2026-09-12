@@ -1,31 +1,16 @@
-/*
- * Low-Level SDHC SPI Driver 
- * Project: main/sdHC.c
- */
-
 #include <avr/io.h>
 #include <stdint.h>
 #include <stdbool.h>
 
-// #define MCU_FREQ_16MHZ
-#define MCU_FREQ_20MHZ
-
-#ifdef MCU_FREQ_16MHZ
-  #undef F_CPU
-  #define F_CPU 16000000UL
-#else
-  #undef F_CPU
-  #define F_CPU 20000000UL
-#endif
+#undef F_CPU
+#define F_CPU 20000000UL
 
 #include <util/delay.h>
-
-#define SPI_20MHZ_FAST
 
 #define SD_CS_LOW()   (PORTB &= ~(1 << PB2))
 #define SD_CS_HIGH()  (PORTB |=  (1 << PB2))
 
-uint8_t is_sdhc = 0;
+static uint8_t is_sdhc = 0;
 static uint8_t sdhc_512_buf[512];
 
 uint8_t spi_transfer(uint8_t data) {
@@ -57,12 +42,10 @@ uint8_t sd_send_command(uint8_t cmd, uint32_t arg, uint8_t crc) {
 uint8_t sd_init(void) {
     SD_CS_HIGH();
 
-    // Configure SPI pins
     DDRB |= (1 << PB2) | (1 << PB3) | (1 << PB5);
     DDRB &= ~(1 << PB4);
-    PORTB |= (1 << PB4); // MISO pull-up
+    PORTB |= (1 << PB4);
 
-    // Slow SPI clock for init
     SPCR = (1 << SPE) | (1 << MSTR) | (1 << SPR1) | (1 << SPR0);
     SPSR &= ~(1 << SPI2X);
 
@@ -115,18 +98,8 @@ uint8_t sd_init(void) {
         spi_transfer(0xFF);
     }
 
-#ifdef MCU_FREQ_16MHZ
     SPCR &= ~((1 << SPR1) | (1 << SPR0));
     SPSR |= (1 << SPI2X);
-#else
-  #ifdef SPI_20MHZ_FAST
-    SPCR &= ~((1 << SPR1) | (1 << SPR0));
-    SPSR |= (1 << SPI2X);
-  #else
-    SPCR &= ~((1 << SPR1) | (1 << SPR0));
-    SPSR &= ~(1 << SPI2X);
-  #endif
-#endif
 
     SD_CS_HIGH();
     spi_transfer(0xFF);
@@ -176,7 +149,6 @@ uint8_t sd_write_512_block(uint32_t sdhc_lba, const uint8_t *buf512) {
         return 1;
     }
 
-    SD_CS_LOW();
     spi_transfer(0xFF);
     spi_transfer(0xFE);
 
@@ -225,6 +197,7 @@ uint8_t sd_read_floppy_sector(uint32_t image_base_lba, uint32_t floppy_sector_id
         for (uint16_t i = 0; i < sector_size; i++) {
             target_buf[i] = sdhc_512_buf[sub_offset + i];
         }
+        return 0;
     } else if (sector_size == 512) {
         uint32_t sdhc_lba = image_base_lba + floppy_sector_idx;
         return sd_read_512_block(sdhc_lba, target_buf);
@@ -234,7 +207,6 @@ uint8_t sd_read_floppy_sector(uint32_t image_base_lba, uint32_t floppy_sector_id
         if (res != 0) return res;
         return sd_read_512_block(sdhc_lba + 1, target_buf + 512);
     }
-    return 0;
 }
 
 uint8_t sd_write_floppy_sector(uint32_t image_base_lba, uint32_t floppy_sector_idx, uint16_t sector_size, const uint8_t *source_buf) {

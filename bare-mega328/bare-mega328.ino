@@ -1,24 +1,7 @@
-/*
- * WD1773/WD1793 Floppy Disk Controller Emulator for ATmega328P
- * Project: bare-mega328/bare-mega328.ino
- */
-
 #include <Arduino.h>
-#include <util/atomic.h>
 
-// #define MCU_FREQ_16MHZ
-#define MCU_FREQ_20MHZ
-
-// #define HOST_6502_1000KHZ
-#define HOST_6502_1193KHZ
-
-#ifdef MCU_FREQ_16MHZ
-  #undef F_CPU
-  #define F_CPU 16000000UL
-#elif defined(MCU_FREQ_20MHZ)
-  #undef F_CPU
-  #define F_CPU 20000000UL
-#endif
+#undef F_CPU
+#define F_CPU 20000000UL
 
 #define MAX_SECTOR_SIZE   1024
 #define SECTORS_PER_TRACK 18
@@ -86,7 +69,6 @@ void run_disk_controller(void) {
         case 0x00: {
           uint8_t cmd = event_val;
 
-          // WD179X standard: Commands written while Busy are ignored unless Force Interrupt (0xD0)
           if ((status_reg & 0x01) && ((cmd & 0xF0) != 0xD0)) {
             break;
           }
@@ -145,7 +127,7 @@ void run_disk_controller(void) {
                 drive_ready = true;
               } else {
                 active_cmd_type = CMD_IDLE;
-                status_reg = 0x80; // Not ready
+                status_reg = 0x80;
                 PORTC &= ~(1 << PC4);
                 PORTC |=  (1 << PC5);
                 break;
@@ -154,7 +136,7 @@ void run_disk_controller(void) {
 
             if (sector_reg == 0 || sector_reg > SECTORS_PER_TRACK) {
               active_cmd_type = CMD_IDLE;
-              status_reg = 0x10; // RNF
+              status_reg = 0x10;
               PORTC &= ~(1 << PC4);
               PORTC |=  (1 << PC5);
               break;
@@ -169,7 +151,7 @@ void run_disk_controller(void) {
 
             if (sd_read_floppy_sector(IMAGE_START_LBA, floppy_idx, bytes_per_sector, sector_buffer) != 0) {
               active_cmd_type = CMD_IDLE;
-              status_reg = 0x10; // Read error
+              status_reg = 0x10;
               PORTC &= ~(1 << PC4);
               PORTC |=  (1 << PC5);
               break;
@@ -178,7 +160,7 @@ void run_disk_controller(void) {
             active_cmd_type = CMD_READ_SECTOR;
             buffer_idx = 0;
             data_reg = sector_buffer[buffer_idx++];
-            status_reg = 0x03; // Busy + DRQ
+            status_reg = 0x03;
             PORTC |= (1 << PC4);
           }
           else if ((cmd & 0xE0) == 0xA0) {
@@ -187,9 +169,9 @@ void run_disk_controller(void) {
             head_side = (cmd & 0x08) ? 1 : 0;
             if (write_protected) {
               active_cmd_type = CMD_IDLE;
-              status_reg = 0x40; // Write protect
+              status_reg = 0x40;
               PORTC &= ~(1 << PC4);
-              PORTC |= (1 << PC5);
+              PORTC |=  (1 << PC5);
               break;
             }
 
@@ -198,7 +180,7 @@ void run_disk_controller(void) {
                 drive_ready = true;
               } else {
                 active_cmd_type = CMD_IDLE;
-                status_reg = 0x80; // Not ready
+                status_reg = 0x80;
                 PORTC &= ~(1 << PC4);
                 PORTC |=  (1 << PC5);
                 break;
@@ -207,7 +189,7 @@ void run_disk_controller(void) {
 
             if (sector_reg == 0 || sector_reg > SECTORS_PER_TRACK) {
               active_cmd_type = CMD_IDLE;
-              status_reg = 0x10; // RNF
+              status_reg = 0x10;
               PORTC &= ~(1 << PC4);
               PORTC |=  (1 << PC5);
               break;
@@ -219,7 +201,7 @@ void run_disk_controller(void) {
 
             active_cmd_type = CMD_WRITE_SECTOR;
             buffer_idx = 0;
-            status_reg = 0x03; // Busy + DRQ
+            status_reg = 0x03;
             PORTC |= (1 << PC4);
           }
           else if ((cmd & 0xF0) == 0xC0) {
@@ -230,7 +212,7 @@ void run_disk_controller(void) {
                 drive_ready = true;
               } else {
                 active_cmd_type = CMD_IDLE;
-                status_reg = 0x80; // Not ready
+                status_reg = 0x80;
                 PORTC &= ~(1 << PC4);
                 PORTC |=  (1 << PC5);
                 break;
@@ -238,7 +220,7 @@ void run_disk_controller(void) {
             }
 
             active_cmd_type = CMD_READ_ADDRESS;
-            status_reg = 0x03; // Busy + DRQ
+            status_reg = 0x03;
             
             sector_buffer[0] = track_reg;
             sector_buffer[1] = head_side;
@@ -260,7 +242,7 @@ void run_disk_controller(void) {
                 drive_ready = true;
               } else {
                 active_cmd_type = CMD_IDLE;
-                status_reg = 0x80; // Not ready
+                status_reg = 0x80;
                 PORTC &= ~(1 << PC4);
                 PORTC |=  (1 << PC5);
                 break;
@@ -275,14 +257,14 @@ void run_disk_controller(void) {
             uint32_t floppy_idx = ((uint32_t)track_reg * SECTORS_PER_TRACK);
             if (sd_read_floppy_sector(IMAGE_START_LBA, floppy_idx, bytes_per_sector, sector_buffer) != 0) {
               active_cmd_type = CMD_IDLE;
-              status_reg = 0x10; // Read error
+              status_reg = 0x10;
               PORTC &= ~(1 << PC4);
               PORTC |=  (1 << PC5);
               break;
             }
 
             active_cmd_type = CMD_READ_TRACK;
-            status_reg = 0x03; // Busy + DRQ
+            status_reg = 0x03;
             buffer_idx = 0;
             data_reg = 0x00;
             PORTC |= (1 << PC4);
@@ -292,7 +274,7 @@ void run_disk_controller(void) {
             multi_sector = false;
             if (write_protected) {
               active_cmd_type = CMD_IDLE;
-              status_reg = 0x40; // Write protect
+              status_reg = 0x40;
               PORTC &= ~(1 << PC4);
               PORTC |=  (1 << PC5);
               break;
@@ -303,7 +285,7 @@ void run_disk_controller(void) {
                 drive_ready = true;
               } else {
                 active_cmd_type = CMD_IDLE;
-                status_reg = 0x80; // Not ready
+                status_reg = 0x80;
                 PORTC &= ~(1 << PC4);
                 PORTC |=  (1 << PC5);
                 break;
@@ -315,7 +297,7 @@ void run_disk_controller(void) {
             bytes_per_sector = 128 << (sector_len_code & 0x03);
             if (bytes_per_sector > MAX_SECTOR_SIZE) bytes_per_sector = MAX_SECTOR_SIZE;
             active_transfer_len = (uint16_t)SECTORS_PER_TRACK * bytes_per_sector;
-            status_reg = 0x03; // Busy + DRQ
+            status_reg = 0x03;
             PORTC |= (1 << PC4);
           }
           else if ((cmd & 0xF0) == 0xD0) {
@@ -369,12 +351,12 @@ void run_disk_controller(void) {
 
                 if (wr_res != 0) {
                   active_cmd_type = CMD_IDLE;
-                  status_reg = 0x20; // Write fault
+                  status_reg = 0x20;
                   PORTC |= (1 << PC5);
                 } else if (multi_sector && (sector_reg < SECTORS_PER_TRACK)) {
                   sector_reg++;
                   buffer_idx = 0;
-                  status_reg = 0x03; // Busy + DRQ
+                  status_reg = 0x03;
                   PORTC |= (1 << PC4);
                 } else {
                   if (multi_sector) sector_reg++;
@@ -406,7 +388,7 @@ void run_disk_controller(void) {
               }
 
               active_cmd_type = CMD_IDLE;
-              status_reg = fmt_err ? 0x20 : 0x00; // Write fault or OK
+              status_reg = fmt_err ? 0x20 : 0x00;
               PORTC |=  (1 << PC5);
             }
           } else {
@@ -489,7 +471,7 @@ void run_disk_controller(void) {
                 uint32_t floppy_idx = ((uint32_t)track_reg * SECTORS_PER_TRACK) + (stream_current_sector - 1);
                 if (sd_read_floppy_sector(IMAGE_START_LBA, floppy_idx, bytes_per_sector, sector_buffer) != 0) {
                   active_cmd_type = CMD_IDLE;
-                  status_reg = 0x10; // Read error
+                  status_reg = 0x10;
                   PORTC &= ~(1 << PC4);
                   PORTC |=  (1 << PC5);
                   continue;
@@ -525,13 +507,13 @@ void run_disk_controller(void) {
               uint32_t floppy_idx = ((uint32_t)track_reg * SECTORS_PER_TRACK) + sec_offset;
               if (sd_read_floppy_sector(IMAGE_START_LBA, floppy_idx, bytes_per_sector, sector_buffer) != 0) {
                 active_cmd_type = CMD_IDLE;
-                status_reg = 0x10; // Read error
+                status_reg = 0x10;
                 PORTC &= ~(1 << PC4);
                 PORTC |=  (1 << PC5);
               } else {
                 buffer_idx = 0;
                 data_reg = sector_buffer[buffer_idx++];
-                status_reg = 0x03; // Busy + DRQ
+                status_reg = 0x03;
                 PORTC |= (1 << PC4);
               }
             } else {
@@ -544,7 +526,6 @@ void run_disk_controller(void) {
           }
         }
         else {
-          // Clear DRQ on idle read
           status_reg &= ~0x02;
           PORTC &= ~(1 << PC4);
         }
@@ -554,9 +535,7 @@ void run_disk_controller(void) {
 }
 
 void setup() {
-  // Disable timer0 interrupt
   TIMSK0 = 0;
-  // Disable UART to free PD0/PD1
   UCSR0B = 0;
   cli();
 
@@ -573,5 +552,4 @@ void setup() {
 }
 
 void loop() {
-
 }
