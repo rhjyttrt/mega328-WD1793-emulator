@@ -1,16 +1,17 @@
 /*
- * WD1773 Floppy Disk Controller Emulator for ATmega328P
- * Project: main/main.ino
+ * WD1773/WD1793 Floppy Disk Controller Emulator for Arduino Uno / Nano R3
+ * Target: ATmega328P @ 16 MHz
+ * Project: arduino-nano/arduino-nano.ino
  */
 
 #include <Arduino.h>
 #include <util/atomic.h>
 
-// #define MCU_FREQ_16MHZ
-#define MCU_FREQ_20MHZ
+#define MCU_FREQ_16MHZ
+// #define MCU_FREQ_20MHZ
 
-// #define HOST_6502_1000KHZ
-#define HOST_6502_1193KHZ
+#define HOST_6502_1000KHZ
+// #define HOST_6502_1193KHZ
 
 #ifdef MCU_FREQ_16MHZ
   #undef F_CPU

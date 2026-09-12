@@ -1,5 +1,5 @@
 ;
-; Cycle Accurate 6502 Bus Polling Core for ATmega328P
+; 6502 Bus Polling Core for ATmega328P
 ; Project: main/bus_core.S
 ;
 
@@ -13,6 +13,11 @@ init_bus_asm:
     out  _SFR_IO_ADDR(DDRD), r18
     out  _SFR_IO_ADDR(PORTD), r18
     
+    cbi  _SFR_IO_ADDR(DDRC), PC0
+    cbi  _SFR_IO_ADDR(DDRC), PC1
+    cbi  _SFR_IO_ADDR(DDRC), PC2
+    cbi  _SFR_IO_ADDR(DDRC), PC3
+    sbi  _SFR_IO_ADDR(PORTC), PC2   ; Pull-up on CS
     sbi  _SFR_IO_ADDR(DDRC), PC4
     sbi  _SFR_IO_ADDR(DDRC), PC5
     cbi  _SFR_IO_ADDR(PORTC), PC4
@@ -20,6 +25,9 @@ init_bus_asm:
     ret
 
 poll_6502_bus_asm:
+    ser  r23                 ; 0xFF mask
+    clr  r21                 ; 0x00 mask
+
 poll_cs:
     sbic _SFR_IO_ADDR(PINC), PC2
     rjmp poll_cs
@@ -28,65 +36,74 @@ poll_cs:
     sbrs r19, PC3
     rjmp handle_write
 
-    mov  r23, r19
-    andi r23, 0x03
-    ori  r23, 0x40
-
-    mov  r25, r19
-    andi r25, 0x03
-
-    cpi  r25, 0x00
-    breq send_status
-    cpi  r25, 0x01
-    breq send_track
-    cpi  r25, 0x02
-    breq send_sector
+    ; Read decode: PC1=A1, PC0=A0
+    sbrs r19, PC1
+    rjmp read_a1_low
+    sbrs r19, PC0
+    rjmp send_sector
 
 send_data:
-    mov  r25, r18
-    cbi  _SFR_IO_ADDR(PORTC), PC4
-    rjmp drive_bus
+    out  _SFR_IO_ADDR(PORTD), r18
+    out  _SFR_IO_ADDR(DDRD), r23
+    cbi  _SFR_IO_ADDR(PORTC), PC4   ; Clear DRQ
+    rjmp wait_release_read
 
-send_status:
-    mov  r25, r24
-    cbi  _SFR_IO_ADDR(PORTC), PC5
-    rjmp drive_bus
+read_a1_low:
+    sbrs r19, PC0
+    rjmp send_status
 
 send_track:
-    mov  r25, r22
-    rjmp drive_bus
+    out  _SFR_IO_ADDR(PORTD), r22
+    out  _SFR_IO_ADDR(DDRD), r23
+    rjmp wait_release_read
+
+send_status:
+    out  _SFR_IO_ADDR(PORTD), r24
+    out  _SFR_IO_ADDR(DDRD), r23
+    cbi  _SFR_IO_ADDR(PORTC), PC5   ; Clear INTRQ
+    rjmp wait_release_read
 
 send_sector:
-    mov  r25, r20
-
-drive_bus:
-    out  _SFR_IO_ADDR(PORTD), r25
-    ser  r19
-    out  _SFR_IO_ADDR(DDRD), r19
+    out  _SFR_IO_ADDR(PORTD), r20
+    out  _SFR_IO_ADDR(DDRD), r23
 
 wait_release_read:
     sbis _SFR_IO_ADDR(PINC), PC2
     rjmp wait_release_read
 
-    clr  r18
-    out  _SFR_IO_ADDR(DDRD), r18
-    out  _SFR_IO_ADDR(PORTD), r18
+    out  _SFR_IO_ADDR(DDRD), r21    ; Float PORTD
+    out  _SFR_IO_ADDR(PORTD), r21
 
-    mov  r25, r23
+    andi r19, 0x03
+    ori  r19, 0x40                 ; 0x40 = read
+    mov  r25, r19
     clr  r24
     ret
 
 handle_write:
-    in   r24, _SFR_IO_ADDR(PIND)
-
+    in   r24, _SFR_IO_ADDR(PIND)   ; Initial sample while CS is confirmed low
 wait_release_write:
-    sbic _SFR_IO_ADDR(PINC), PC2
+    sbic _SFR_IO_ADDR(PINC), PC2   ; If CS is released (high), proceed
     rjmp write_cs_released
-    in   r24, _SFR_IO_ADDR(PIND)
+    in   r24, _SFR_IO_ADDR(PIND)   ; Keep updating while CS remains asserted low
     rjmp wait_release_write
 
 write_cs_released:
     andi r19, 0x03
-    ori  r19, 0x80
+    cpi  r19, 0x00                 ; Command reg
+    breq write_cmd
+    cpi  r19, 0x03                 ; Data reg
+    breq write_data
+    rjmp write_done
+
+write_cmd:
+    cbi  _SFR_IO_ADDR(PORTC), PC5   ; Clear INTRQ
+    rjmp write_done
+
+write_data:
+    cbi  _SFR_IO_ADDR(PORTC), PC4   ; Clear DRQ
+
+write_done:
+    ori  r19, 0x80                 ; 0x80 = write
     mov  r25, r19
     ret

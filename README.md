@@ -43,10 +43,19 @@ An ATmega328P-based hardware emulator for the Western Digital WD1793 (and compat
 ## Flashing Commands
 
 ### Bare ATmega328 (USBasp / ISP Programmer):
+```bash
 avrdude -c usbasp -p m328p -U flash:w:bare-mega328/firmware/main.hex:i
+```
 
-### Arduino Nano / Uno R3 (Serial Bootloader):
+### Arduino Nano (Classic / Old Bootloader @ 57600 baud):
+```bash
 avrdude -c arduino -p m328p -P /dev/ttyUSB0 -b 57600 -U flash:w:arduino-nano/firmware/main_nano.hex:i
+```
+
+### Arduino Uno R3 / Nano (Optiboot / New Bootloader @ 115200 baud):
+```bash
+avrdude -c arduino -p m328p -P /dev/ttyACM0 -b 115200 -U flash:w:arduino-nano/firmware/main_nano.hex:i
+```
 
 ---
 
@@ -82,7 +91,8 @@ Connect the emulator lines to your host computer system (6502, 6809, Z80, etc.):
 
 ## Troubleshooting & Important Hardware Notes
 - USB Serial Interference (Arduino Nano): Pins D0 and D1 double as the hardware RX/TX UART lines. Do not open the Arduino Serial Monitor or serial terminal programs while connected to the host bus, as this will corrupt Data Bits 0 and 1.
-- SD Card Voltage: ATmega328 outputs are 5V logic. Ensure your SD card breakout module features an onboard 3.3V regulator and level shifter to protect the card inputs.
+- Host Bus Logic Levels: When powering the ATmega328P at 5V, PORTD and PORTC provide true 5V TTL/CMOS compatibility with vintage computers (6502, Z80, 6809, etc.). No level shifters are required on the host bus lines.
+- SD Card Voltage: ATmega328 SPI outputs are 5V logic. Ensure your SD card breakout module features an onboard 3.3V regulator and level shifter (or use a resistive divider) to protect the 3.3V SD card inputs.
 
 ---
 

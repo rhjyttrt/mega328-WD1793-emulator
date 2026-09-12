@@ -1,6 +1,6 @@
 /*
- * WD1773 Floppy Disk Controller Emulator for ATmega328P
- * Project: main/main.ino
+ * WD1773/WD1793 Floppy Disk Controller Emulator for ATmega328P
+ * Project: bare-mega328/bare-mega328.ino
  */
 
 #include <Arduino.h>
