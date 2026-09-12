@@ -11,6 +11,8 @@
 extern "C" {
   void init_bus_asm(void);
   uint16_t poll_6502_bus_asm(uint8_t status, uint8_t track, uint8_t sector, uint8_t data);
+  uint16_t stream_read_sector_asm(uint8_t *buf, uint16_t len);
+  uint16_t stream_write_sector_asm(uint8_t *buf, uint16_t len);
   uint8_t sd_init(void);
   uint8_t sd_read_floppy_sector(uint32_t image_base_lba, uint32_t floppy_sector_idx, uint16_t sector_size, uint8_t *target_buf);
   uint8_t sd_write_floppy_sector(uint32_t image_base_lba, uint32_t floppy_sector_idx, uint16_t sector_size, const uint8_t *source_buf);
@@ -145,24 +147,43 @@ void run_disk_controller(void) {
 
             bytes_per_sector = 128 << (sector_len_code & 0x03);
             if (bytes_per_sector > MAX_SECTOR_SIZE) bytes_per_sector = MAX_SECTOR_SIZE;
-            active_transfer_len = bytes_per_sector;
 
-            uint8_t sec_offset = sector_reg - 1;
-            uint32_t floppy_idx = ((uint32_t)track_reg * SECTORS_PER_TRACK) + sec_offset;
+            do {
+              uint8_t sec_offset = sector_reg - 1;
+              uint32_t floppy_idx = ((uint32_t)track_reg * SECTORS_PER_TRACK) + sec_offset;
 
-            if (sd_read_floppy_sector(IMAGE_START_LBA, floppy_idx, bytes_per_sector, sector_buffer) != 0) {
-              active_cmd_type = CMD_IDLE;
-              status_reg = 0x10;
-              PORTC &= ~(1 << PC4);
-              PORTC |=  (1 << PC5);
-              break;
-            }
+              if (sd_read_floppy_sector(IMAGE_START_LBA, floppy_idx, bytes_per_sector, sector_buffer) != 0) {
+                status_reg = 0x10;
+                PORTC &= ~(1 << PC4);
+                PORTC |=  (1 << PC5);
+                break;
+              }
 
-            active_cmd_type = CMD_READ_SECTOR;
-            buffer_idx = 0;
-            data_reg = sector_buffer[buffer_idx++];
-            status_reg = 0x03;
-            PORTC |= (1 << PC4);
+              status_reg = 0x03;
+              uint16_t stream_res = stream_read_sector_asm(sector_buffer, bytes_per_sector);
+              if (stream_res & 0xFF00) {
+                uint8_t abort_cmd = stream_res & 0xFF;
+                if ((abort_cmd & 0xF0) == 0xD0) {
+                  last_cmd_is_type1 = true;
+                  status_reg = get_type1_status();
+                  if (abort_cmd & 0x08) PORTC |= (1 << PC5);
+                  else PORTC &= ~(1 << PC5);
+                }
+                break;
+              }
+
+              if (multi_sector && (sector_reg < SECTORS_PER_TRACK)) {
+                sector_reg++;
+              } else {
+                if (multi_sector) sector_reg++;
+                status_reg &= ~0x03;
+                PORTC &= ~(1 << PC4);
+                PORTC |=  (1 << PC5);
+                break;
+              }
+            } while (multi_sector);
+
+            active_cmd_type = CMD_IDLE;
           }
           else if ((cmd & 0xE0) == 0xA0) {
             last_cmd_is_type1 = false;
@@ -198,12 +219,43 @@ void run_disk_controller(void) {
 
             bytes_per_sector = 128 << (sector_len_code & 0x03);
             if (bytes_per_sector > MAX_SECTOR_SIZE) bytes_per_sector = MAX_SECTOR_SIZE;
-            active_transfer_len = bytes_per_sector;
 
-            active_cmd_type = CMD_WRITE_SECTOR;
-            buffer_idx = 0;
-            status_reg = 0x03;
-            PORTC |= (1 << PC4);
+            do {
+              status_reg = 0x03;
+              uint16_t stream_res = stream_write_sector_asm(sector_buffer, bytes_per_sector);
+              if (stream_res & 0xFF00) {
+                uint8_t abort_cmd = stream_res & 0xFF;
+                if ((abort_cmd & 0xF0) == 0xD0) {
+                  last_cmd_is_type1 = true;
+                  status_reg = get_type1_status();
+                  if (abort_cmd & 0x08) PORTC |= (1 << PC5);
+                  else PORTC &= ~(1 << PC5);
+                }
+                break;
+              }
+
+              uint8_t sec_offset = sector_reg - 1;
+              uint32_t floppy_idx = ((uint32_t)track_reg * SECTORS_PER_TRACK) + sec_offset;
+
+              if (sd_write_floppy_sector(IMAGE_START_LBA, floppy_idx, bytes_per_sector, sector_buffer) != 0) {
+                status_reg = 0x20;
+                PORTC &= ~(1 << PC4);
+                PORTC |=  (1 << PC5);
+                break;
+              }
+
+              if (multi_sector && (sector_reg < SECTORS_PER_TRACK)) {
+                sector_reg++;
+              } else {
+                if (multi_sector) sector_reg++;
+                status_reg &= ~0x03;
+                PORTC &= ~(1 << PC4);
+                PORTC |=  (1 << PC5);
+                break;
+              }
+            } while (multi_sector);
+
+            active_cmd_type = CMD_IDLE;
           }
           else if ((cmd & 0xF0) == 0xC0) {
             last_cmd_is_type1 = false;

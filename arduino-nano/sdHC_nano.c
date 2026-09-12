@@ -14,6 +14,9 @@
 static uint8_t is_sdhc = 0;
 static uint8_t sdhc_512_buf[512];
 
+extern void spi_read_512_asm(uint8_t *dest);
+extern void spi_write_512_asm(const uint8_t *src);
+
 uint8_t spi_transfer(uint8_t data) {
     SPDR = data;
     while (!(SPSR & (1 << SPIF)));
@@ -130,9 +133,7 @@ uint8_t sd_read_512_block(uint32_t sdhc_lba, uint8_t *buf512) {
         return 2;
     }
 
-    for (uint16_t i = 0; i < 512; i++) {
-        buf512[i] = spi_transfer(0xFF);
-    }
+    spi_read_512_asm(buf512);
 
     spi_transfer(0xFF);
     spi_transfer(0xFF);
@@ -153,9 +154,7 @@ uint8_t sd_write_512_block(uint32_t sdhc_lba, const uint8_t *buf512) {
     spi_transfer(0xFF);
     spi_transfer(0xFE);
 
-    for (uint16_t i = 0; i < 512; i++) {
-        spi_transfer(buf512[i]);
-    }
+    spi_write_512_asm(buf512);
 
     spi_transfer(0xFF);
     spi_transfer(0xFF);
